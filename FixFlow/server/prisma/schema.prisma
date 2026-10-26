@@ -1,0 +1,125 @@
+// FixFlow - Prisma 6.19.0 Database Schema
+// College Equipment Repair Tracker
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EquipmentCategory {
+  LAPTOP
+  PROJECTOR
+  PRINTER
+  COMPUTER
+  ROUTER
+  OTHER
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ComplaintStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  ON_HOLD
+  RESOLVED
+  CLOSED
+}
+
+enum EquipmentCondition {
+  EXCELLENT
+  GOOD
+  FAIR
+  POOR
+  UNDER_REPAIR
+}
+
+// Technician model: represents campus repair staff
+model Technician {
+  id             String      @id @default(uuid())
+  name           String
+  email          String      @unique
+  specialization String
+  availability   Boolean     @default(true)
+  complaints     Complaint[]
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([availability])
+}
+
+// Equipment model: inventory of campus assets
+model Equipment {
+  id         String             @id @default(uuid())
+  name       String
+  category   EquipmentCategory
+  assetLabel String             @unique
+  building   String
+  room       String
+  condition  EquipmentCondition @default(GOOD)
+  complaints Complaint[]
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  @@index([category])
+  @@index([condition])
+}
+
+// Complaint model: the core repair request
+model Complaint {
+  id                String            @id @default(uuid())
+  reference         String            @unique
+  title             String
+  description       String
+  equipmentName     String
+  assetLabel        String?
+  equipmentCategory EquipmentCategory
+  building          String
+  room              String
+  reporterName      String
+  reporterEmail     String
+  priority          Priority          @default(MEDIUM)
+  status            ComplaintStatus   @default(OPEN)
+  repairNotes       String?
+
+  technicianId      String?
+  technician        Technician?       @relation(fields: [technicianId], references: [id], onDelete: SetNull)
+
+  equipmentId       String?
+  equipment         Equipment?        @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
+
+  history           StatusHistory[]
+
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([status])
+  @@index([priority])
+  @@index([equipmentCategory])
+  @@index([technicianId])
+  @@index([createdAt])
+}
+
+// StatusHistory model: audit trail for repair workflow
+model StatusHistory {
+  id          String           @id @default(uuid())
+  complaintId String
+  complaint   Complaint        @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  oldStatus   ComplaintStatus?
+  newStatus   ComplaintStatus
+  note        String?
+  changedBy   String?          @default("System")
+  createdAt   DateTime         @default(now())
+
+  @@index([complaintId])
+  @@index([createdAt])
+}
